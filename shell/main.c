@@ -7,6 +7,28 @@
 
 #define MAX_COMMAND_LEN 1000
 #define MAX_NUM_ARGUMENTS 64
+#define HISTORY_COUNT 10
+
+// Global variables for command history
+char history[HISTORY_COUNT][MAX_COMMAND_LEN];
+int history_count = 0;
+
+// Function to add command to history
+void add_to_history(char *command) {
+    if (strlen(command) > 0 && strcmp(command, "history") != 0 && strcmp(command, "!!") != 0) {
+        strncpy(history[history_count % HISTORY_COUNT], command, MAX_COMMAND_LEN - 1);
+        history[history_count % HISTORY_COUNT][MAX_COMMAND_LEN - 1] = '\0';
+        history_count++;
+    }
+}
+
+// Function to get last command from history
+char* get_last_command() {
+    if (history_count == 0) {
+        return NULL;
+    }
+    return history[(history_count - 1) % HISTORY_COUNT];
+}
 
 // Function to tokenize input into command and arguments
 char **parse_input(char *input) {
@@ -100,8 +122,25 @@ int builtin_help(char **args) {
     printf("  cd [dir]   - Change directory (default: home)\n");
     printf("  pwd        - Print working directory\n");
     printf("  help       - Show this help message\n");
+    printf("  history    - Show command history\n");
+    printf("  !!         - Execute last command\n");
     printf("\nPress Ctrl+C to interrupt a running command\n");
     printf("Press Ctrl+D or type 'exit' to quit the shell\n");
+    return 1;
+}
+
+// Built-in command: history
+int builtin_history(char **args) {
+    printf("Command History:\n");
+    if (history_count == 0) {
+        printf("No commands in history\n");
+        return 1;
+    }
+    
+    int start = (history_count > HISTORY_COUNT) ? history_count - HISTORY_COUNT : 0;
+    for (int i = start; i < history_count; i++) {
+        printf("%d: %s\n", i + 1, history[i % HISTORY_COUNT]);
+    }
     return 1;
 }
 
@@ -125,6 +164,10 @@ int execute_builtin(char **args) {
     
     if (strcmp(args[0], "help") == 0) {
         return builtin_help(args);
+    }
+    
+    if (strcmp(args[0], "history") == 0) {
+        return builtin_history(args);
     }
     
     return -1; // Not a built-in command
@@ -159,6 +202,22 @@ void shell_loop(void) {
         
         // Remove newline character
         line[strcspn(line, "\n")] = 0;
+        
+        // Handle history command
+        if (strcmp(line, "!!") == 0) {
+            char *last_cmd = get_last_command();
+            if (last_cmd == NULL) {
+                printf("No commands in history\n");
+                free(line);
+                continue;
+            }
+            printf("%s\n", last_cmd);
+            free(line);
+            line = malloc(strlen(last_cmd) + 1);
+            strcpy(line, last_cmd);
+        } else {
+            add_to_history(line);
+        }
         
         args = parse_input(line);
         
