@@ -67,6 +67,44 @@ int builtin_exit(char **args) {
     return 0; // Signal to exit the shell
 }
 
+// Built-in command: cd
+int builtin_cd(char **args) {
+    if (args[1] == NULL) {
+        // No argument provided, go to home directory
+        if (chdir(getenv("HOME")) != 0) {
+            perror("cd");
+        }
+    } else {
+        if (chdir(args[1]) != 0) {
+            perror("cd");
+        }
+    }
+    return 1;
+}
+
+// Built-in command: pwd
+int builtin_pwd(char **args) {
+    char cwd[1024];
+    if (getcwd(cwd, sizeof(cwd)) != NULL) {
+        printf("%s\n", cwd);
+    } else {
+        perror("pwd");
+    }
+    return 1;
+}
+
+// Built-in command: help
+int builtin_help(char **args) {
+    printf("Unix Shell - Available Commands:\n");
+    printf("  exit       - Exit the shell\n");
+    printf("  cd [dir]   - Change directory (default: home)\n");
+    printf("  pwd        - Print working directory\n");
+    printf("  help       - Show this help message\n");
+    printf("\nPress Ctrl+C to interrupt a running command\n");
+    printf("Press Ctrl+D or type 'exit' to quit the shell\n");
+    return 1;
+}
+
 // Check if command is built-in and execute it
 int execute_builtin(char **args) {
     if (args[0] == NULL) {
@@ -75,6 +113,18 @@ int execute_builtin(char **args) {
     
     if (strcmp(args[0], "exit") == 0) {
         return builtin_exit(args);
+    }
+    
+    if (strcmp(args[0], "cd") == 0) {
+        return builtin_cd(args);
+    }
+    
+    if (strcmp(args[0], "pwd") == 0) {
+        return builtin_pwd(args);
+    }
+    
+    if (strcmp(args[0], "help") == 0) {
+        return builtin_help(args);
     }
     
     return -1; // Not a built-in command
@@ -129,7 +179,8 @@ void shell_loop(void) {
 // Main function
 int main(void) {
     printf("Unix Shell v1.0 - Basic Implementation\n");
-    printf("Type 'exit' to quit\n\n");
+    printf("Type 'help' for available commands\n");
+    printf("Use Ctrl+D or 'exit' to quit\n\n");
     
     // Run the main shell loop
     shell_loop();
