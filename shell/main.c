@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <sys/types.h>
+#include <fcntl.h>
 
 #define MAX_COMMAND_LEN 1000
 #define MAX_NUM_ARGUMENTS 64
@@ -62,7 +63,76 @@ void free_command(char **command) {
     free(command);
 }
 
-// Function to check if command should run in background
+// Function to find pipe in command
+int find_pipe(char **command) {
+    int i = 0;
+    while (command[i] != NULL) {
+        if (strcmp(command[i], "|") == 0) {
+            return i;
+        }
+        i++;
+    }
+    return -1;
+}
+
+// Function to execute command with pipe
+void execute_pipe(char **left_command, char **right_command) {
+    int pipe_fd[2];
+    pid_t pid1, pid2;
+    
+    if (pipe(pipe_fd) == -1) {
+        perror("pipe");
+        return;
+    }
+    
+    // First child process (left side of pipe)
+    pid1 = fork();
+    if (pid1 == -1) {
+        perror("fork");
+        return;
+    }
+    
+    if (pid1 == 0) {
+        // Close read end of pipe
+        close(pipe_fd[0]);
+        // Redirect stdout to write end of pipe
+        dup2(pipe_fd[1], STDOUT_FILENO);
+        close(pipe_fd[1]);
+        
+        if (execvp(left_command[0], left_command) == -1) {
+            printf("Command not found: %s\n", left_command[0]);
+            exit(1);
+        }
+    }
+    
+    // Second child process (right side of pipe)
+    pid2 = fork();
+    if (pid2 == -1) {
+        perror("fork");
+        return;
+    }
+    
+    if (pid2 == 0) {
+        // Close write end of pipe
+        close(pipe_fd[1]);
+        // Redirect stdin to read end of pipe
+        dup2(pipe_fd[0], STDIN_FILENO);
+        close(pipe_fd[0]);
+        
+        if (execvp(right_command[0], right_command) == -1) {
+            printf("Command not found: %s\n", right_command[0]);
+            exit(1);
+        }
+    }
+    
+    // Parent process
+    close(pipe_fd[0]);
+    close(pipe_fd[1]);
+    
+    // Wait for both child processes
+    waitpid(pid1, NULL, 0);
+    waitpid(pid2, NULL, 0);
+}
 int is_background_command(char **command) {
     int i = 0;
     while (command[i] != NULL) {
@@ -145,6 +215,7 @@ int builtin_help(char **args) {
     printf("  !!         - Execute last command\n");
     printf("\nFeatures:\n");
     printf("  [command] &     - Run command in background\n");
+    printf("  [cmd1] | [cmd2] - Pipe output of cmd1 to cmd2\n");
     printf("\nPress Ctrl+C to interrupt a running command\n");
     printf("Press Ctrl+D or type 'exit' to quit the shell\n");
     return 1;
@@ -245,8 +316,17 @@ void shell_loop(void) {
         // Check for built-in commands first
         status = execute_builtin(args);
         if (status == -1) {
-            // Not a built-in, execute external command
-            execute_command(args);
+            // Check for pipes
+            int pipe_pos = find_pipe(args);
+            if (pipe_pos != -1) {
+                // Split command at pipe
+                args[pipe_pos] = NULL;
+                char **right_command = &args[pipe_pos + 1];
+                execute_pipe(args, right_command);
+            } else {
+                // Not a built-in, execute external command
+                execute_command(args);
+            }
             status = 1;
         }
         
