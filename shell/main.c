@@ -15,8 +15,10 @@ char history[HISTORY_COUNT][MAX_COMMAND_LEN];
 int history_count = 0;
 
 // Function to add command to history
-void add_to_history(char *command) {
-    if (strlen(command) > 0 && strcmp(command, "history") != 0 && strcmp(command, "!!") != 0) {
+void add_to_history(char *command)
+{
+    if (strlen(command) > 0 && strcmp(command, "history") != 0 && strcmp(command, "!!") != 0)
+    {
         strncpy(history[history_count % HISTORY_COUNT], command, MAX_COMMAND_LEN - 1);
         history[history_count % HISTORY_COUNT][MAX_COMMAND_LEN - 1] = '\0';
         history_count++;
@@ -24,26 +26,31 @@ void add_to_history(char *command) {
 }
 
 // Function to get last command from history
-char* get_last_command() {
-    if (history_count == 0) {
+char *get_last_command()
+{
+    if (history_count == 0)
+    {
         return NULL;
     }
     return history[(history_count - 1) % HISTORY_COUNT];
 }
 
 // Function to tokenize input into command and arguments
-char **parse_input(char *input) {
-    char **tokens = malloc(MAX_NUM_ARGUMENTS * sizeof(char*));
+char **parse_input(char *input)
+{
+    char **tokens = malloc(MAX_NUM_ARGUMENTS * sizeof(char *));
     char *token;
     int i = 0;
-    
-    if (!tokens) {
+
+    if (!tokens)
+    {
         fprintf(stderr, "Memory allocation error\n");
         exit(1);
     }
-    
+
     token = strtok(input, " \t\n\r");
-    while (token != NULL && i < MAX_NUM_ARGUMENTS - 1) {
+    while (token != NULL && i < MAX_NUM_ARGUMENTS - 1)
+    {
         tokens[i] = malloc(strlen(token) + 1);
         strcpy(tokens[i], token);
         i++;
@@ -54,9 +61,11 @@ char **parse_input(char *input) {
 }
 
 // Function to free parsed command
-void free_command(char **command) {
+void free_command(char **command)
+{
     int i = 0;
-    while (command[i] != NULL) {
+    while (command[i] != NULL)
+    {
         free(command[i]);
         i++;
     }
@@ -64,10 +73,13 @@ void free_command(char **command) {
 }
 
 // Function to find pipe in command
-int find_pipe(char **command) {
+int find_pipe(char **command)
+{
     int i = 0;
-    while (command[i] != NULL) {
-        if (strcmp(command[i], "|") == 0) {
+    while (command[i] != NULL)
+    {
+        if (strcmp(command[i], "|") == 0)
+        {
             return i;
         }
         i++;
@@ -76,67 +88,78 @@ int find_pipe(char **command) {
 }
 
 // Function to execute command with pipe
-void execute_pipe(char **left_command, char **right_command) {
+void execute_pipe(char **left_command, char **right_command)
+{
     int pipe_fd[2];
     pid_t pid1, pid2;
-    
-    if (pipe(pipe_fd) == -1) {
+
+    if (pipe(pipe_fd) == -1)
+    {
         perror("pipe");
         return;
     }
-    
+
     // First child process (left side of pipe)
     pid1 = fork();
-    if (pid1 == -1) {
+    if (pid1 == -1)
+    {
         perror("fork");
         return;
     }
-    
-    if (pid1 == 0) {
+
+    if (pid1 == 0)
+    {
         // Close read end of pipe
         close(pipe_fd[0]);
         // Redirect stdout to write end of pipe
         dup2(pipe_fd[1], STDOUT_FILENO);
         close(pipe_fd[1]);
-        
-        if (execvp(left_command[0], left_command) == -1) {
+
+        if (execvp(left_command[0], left_command) == -1)
+        {
             printf("Command not found: %s\n", left_command[0]);
             exit(1);
         }
     }
-    
+
     // Second child process (right side of pipe)
     pid2 = fork();
-    if (pid2 == -1) {
+    if (pid2 == -1)
+    {
         perror("fork");
         return;
     }
-    
-    if (pid2 == 0) {
+
+    if (pid2 == 0)
+    {
         // Close write end of pipe
         close(pipe_fd[1]);
         // Redirect stdin to read end of pipe
         dup2(pipe_fd[0], STDIN_FILENO);
         close(pipe_fd[0]);
-        
-        if (execvp(right_command[0], right_command) == -1) {
+
+        if (execvp(right_command[0], right_command) == -1)
+        {
             printf("Command not found: %s\n", right_command[0]);
             exit(1);
         }
     }
-    
+
     // Parent process
     close(pipe_fd[0]);
     close(pipe_fd[1]);
-    
+
     // Wait for both child processes
     waitpid(pid1, NULL, 0);
     waitpid(pid2, NULL, 0);
 }
-int is_background_command(char **command) {
+int is_background_command(char **command)
+{
     int i = 0;
-    while (command[i] != NULL) {
-        if (strcmp(command[i], "&") == 0) {
+    while (command[i] != NULL)
+    {
+        if (strcmp(command[i], "&") == 0)
+        {
             free(command[i]);
             command[i] = NULL; // Remove & from command
             return 1;
@@ -147,46 +170,63 @@ int is_background_command(char **command) {
 }
 
 // Function to execute a command
-void execute_command(char **command) {
+void execute_command(char **command)
+{
     pid_t pid;
     int status;
     int background = is_background_command(command);
-    
+
     pid = fork();
-    
-    if (pid == 0) {
+
+    if (pid == 0)
+    {
         // Child process
-        if (execvp(command[0], command) == -1) {
+        if (execvp(command[0], command) == -1)
+        {
             printf("Command not found: %s\n", command[0]);
             exit(1);
         }
-    } else if (pid < 0) {
+    }
+    else if (pid < 0)
+    {
         // Fork failed
         perror("fork");
-    } else {
+    }
+    else
+    {
         // Parent process
-        if (!background) {
+        if (!background)
+        {
             waitpid(pid, &status, 0);
-        } else {
+        }
+        else
+        {
             printf("[Process %d started in background]\n", pid);
         }
     }
 }
 
 // Built-in command: exit
-int builtin_exit(char **args) {
+int builtin_exit(char **args)
+{
     return 0; // Signal to exit the shell
 }
 
 // Built-in command: cd
-int builtin_cd(char **args) {
-    if (args[1] == NULL) {
+int builtin_cd(char **args)
+{
+    if (args[1] == NULL)
+    {
         // No argument provided, go to home directory
-        if (chdir(getenv("HOME")) != 0) {
+        if (chdir(getenv("HOME")) != 0)
+        {
             perror("cd");
         }
-    } else {
-        if (chdir(args[1]) != 0) {
+    }
+    else
+    {
+        if (chdir(args[1]) != 0)
+        {
             perror("cd");
         }
     }
@@ -194,18 +234,23 @@ int builtin_cd(char **args) {
 }
 
 // Built-in command: pwd
-int builtin_pwd(char **args) {
+int builtin_pwd(char **args)
+{
     char cwd[1024];
-    if (getcwd(cwd, sizeof(cwd)) != NULL) {
+    if (getcwd(cwd, sizeof(cwd)) != NULL)
+    {
         printf("%s\n", cwd);
-    } else {
+    }
+    else
+    {
         perror("pwd");
     }
     return 1;
 }
 
 // Built-in command: help
-int builtin_help(char **args) {
+int builtin_help(char **args)
+{
     printf("Unix Shell - Available Commands:\n");
     printf("  exit       - Exit the shell\n");
     printf("  cd [dir]   - Change directory (default: home)\n");
@@ -222,83 +267,102 @@ int builtin_help(char **args) {
 }
 
 // Built-in command: history
-int builtin_history(char **args) {
+int builtin_history(char **args)
+{
     printf("Command History:\n");
-    if (history_count == 0) {
+    if (history_count == 0)
+    {
         printf("No commands in history\n");
         return 1;
     }
-    
+
     int start = (history_count > HISTORY_COUNT) ? history_count - HISTORY_COUNT : 0;
-    for (int i = start; i < history_count; i++) {
+    for (int i = start; i < history_count; i++)
+    {
         printf("%d: %s\n", i + 1, history[i % HISTORY_COUNT]);
     }
     return 1;
 }
 
 // Check if command is built-in and execute it
-int execute_builtin(char **args) {
-    if (args[0] == NULL) {
+int execute_builtin(char **args)
+{
+    if (args[0] == NULL)
+    {
         return 1; // Empty command
     }
-    
-    if (strcmp(args[0], "exit") == 0) {
+
+    if (strcmp(args[0], "exit") == 0)
+    {
         return builtin_exit(args);
     }
-    
-    if (strcmp(args[0], "cd") == 0) {
+
+    if (strcmp(args[0], "cd") == 0)
+    {
         return builtin_cd(args);
     }
-    
-    if (strcmp(args[0], "pwd") == 0) {
+
+    if (strcmp(args[0], "pwd") == 0)
+    {
         return builtin_pwd(args);
     }
-    
-    if (strcmp(args[0], "help") == 0) {
+
+    if (strcmp(args[0], "help") == 0)
+    {
         return builtin_help(args);
     }
-    
-    if (strcmp(args[0], "history") == 0) {
+
+    if (strcmp(args[0], "history") == 0)
+    {
         return builtin_history(args);
     }
-    
+
     return -1; // Not a built-in command
 }
 
 // Function to read input from user
-char *read_line(void) {
+char *read_line(void)
+{
     char *line = NULL;
     size_t bufsize = 0;
-    
-    if (getline(&line, &bufsize, stdin) == -1) {
-        if (feof(stdin)) {
+
+    if (getline(&line, &bufsize, stdin) == -1)
+    {
+        if (feof(stdin))
+        {
             exit(EXIT_SUCCESS); // EOF (Ctrl+D)
-        } else {
+        }
+        else
+        {
             perror("readline");
             exit(EXIT_FAILURE);
         }
     }
-    
+
     return line;
 }
 
 // Main shell loop
-void shell_loop(void) {
+void shell_loop(void)
+{
     char *line;
     char **args;
     int status = 1;
-    
-    do {
+
+    do
+    {
         printf("unixsh> ");
         line = read_line();
-        
+
         // Remove newline character
         line[strcspn(line, "\n")] = 0;
-        
+
         // Handle history command
-        if (strcmp(line, "!!") == 0) {
+        if (strcmp(line, "!!") == 0)
+        {
             char *last_cmd = get_last_command();
-            if (last_cmd == NULL) {
+            if (last_cmd == NULL)
+            {
                 printf("No commands in history\n");
                 free(line);
                 continue;
@@ -307,47 +371,55 @@ void shell_loop(void) {
             free(line);
             line = malloc(strlen(last_cmd) + 1);
             strcpy(line, last_cmd);
-        } else {
+        }
+        else
+        {
             add_to_history(line);
         }
-        
+
         args = parse_input(line);
-        
+
         // Check for built-in commands first
         status = execute_builtin(args);
-        if (status == -1) {
+        if (status == -1)
+        {
             // Check for pipes
             int pipe_pos = find_pipe(args);
-            if (pipe_pos != -1) {
+            if (pipe_pos != -1)
+            {
                 // Split command at pipe
                 args[pipe_pos] = NULL;
                 char **right_command = &args[pipe_pos + 1];
                 execute_pipe(args, right_command);
-            } else {
+            }
+            else
+            {
                 // Not a built-in, execute external command
                 execute_command(args);
             }
             status = 1;
         }
-        
+
         // Reap background processes (prevent zombies)
-        while (waitpid(-1, NULL, WNOHANG) > 0);
-        
+        while (waitpid(-1, NULL, WNOHANG) > 0)
+            ;
+
         free(line);
         free_command(args);
-        
+
     } while (status);
 }
 
 // Main function
-int main(void) {
+int main(void)
+{
     printf("Unix Shell v1.0 - Basic Implementation\n");
     printf("Type 'help' for available commands\n");
     printf("Use Ctrl+D or 'exit' to quit\n\n");
-    
+
     // Run the main shell loop
     shell_loop();
-    
+
     printf("Shell terminated. Goodbye!\n");
     return EXIT_SUCCESS;
 }
