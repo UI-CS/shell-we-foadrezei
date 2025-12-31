@@ -62,10 +62,25 @@ void free_command(char **command) {
     free(command);
 }
 
+// Function to check if command should run in background
+int is_background_command(char **command) {
+    int i = 0;
+    while (command[i] != NULL) {
+        if (strcmp(command[i], "&") == 0) {
+            free(command[i]);
+            command[i] = NULL; // Remove & from command
+            return 1;
+        }
+        i++;
+    }
+    return 0;
+}
+
 // Function to execute a command
 void execute_command(char **command) {
     pid_t pid;
     int status;
+    int background = is_background_command(command);
     
     pid = fork();
     
@@ -79,8 +94,12 @@ void execute_command(char **command) {
         // Fork failed
         perror("fork");
     } else {
-        // Parent process - wait for child
-        waitpid(pid, &status, 0);
+        // Parent process
+        if (!background) {
+            waitpid(pid, &status, 0);
+        } else {
+            printf("[Process %d started in background]\n", pid);
+        }
     }
 }
 
@@ -124,6 +143,8 @@ int builtin_help(char **args) {
     printf("  help       - Show this help message\n");
     printf("  history    - Show command history\n");
     printf("  !!         - Execute last command\n");
+    printf("\nFeatures:\n");
+    printf("  [command] &     - Run command in background\n");
     printf("\nPress Ctrl+C to interrupt a running command\n");
     printf("Press Ctrl+D or type 'exit' to quit the shell\n");
     return 1;
@@ -228,6 +249,9 @@ void shell_loop(void) {
             execute_command(args);
             status = 1;
         }
+        
+        // Reap background processes (prevent zombies)
+        while (waitpid(-1, NULL, WNOHANG) > 0);
         
         free(line);
         free_command(args);
